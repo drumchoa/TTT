@@ -1,0 +1,242 @@
+import tkinter as tk
+from tkinter import messagebox
+from tkinter import font
+
+class KidsKioskApp:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("꿈꾸는 도서관 키오스크 🎈")
+        self.root.geometry("600x700")
+        
+        # --- 디자인 테마 설정 (파스텔톤) ---
+        self.colors = {
+            "bg": "#FFF9C4",        # 연한 노랑 (배경)
+            "header": "#FFCC80",    # 연한 주황 (헤더)
+            "btn_primary": "#81D4FA", # 하늘색 (주요 버튼)
+            "btn_action": "#FFAB91",  # 살구색 (동작 버튼)
+            "card_bg": "#FFFFFF",     # 흰색 (책 카드 배경)
+            "text": "#5D4037"         # 진한 갈색 (글자)
+        }
+        
+        self.root.configure(bg=self.colors["bg"])
+        
+        # --- 폰트 설정 (시스템에 따라 다를 수 있음) ---
+        self.title_font = font.Font(family="맑은 고딕", size=24, weight="bold")
+        self.btn_font = font.Font(family="맑은 고딕", size=14, weight="bold")
+        self.text_font = font.Font(family="맑은 고딕", size=12)
+        self.emoji_font = font.Font(size=40) # 이모지용 큰 폰트
+
+        # --- 도서 데이터 (가상의 데이터) ---
+        self.books = [
+            {"id": 1, "title": "공룡의 비밀", "author": "김공룡", "icon": "🦖", "status": True},
+            {"id": 2, "title": "우주 여행", "author": "이우주", "icon": "🚀", "status": True},
+            {"id": 3, "title": "맛있는 요리", "author": "박쉐프", "icon": "🍳", "status": False}, # 대출중
+            {"id": 4, "title": "숲속 친구들", "author": "최토끼", "icon": "🐰", "status": True},
+            {"id": 5, "title": "코딩 왕", "author": "파이썬", "icon": "💻", "status": True},
+            {"id": 6, "title": "축구의 신", "author": "손흥민", "icon": "⚽", "status": True},
+        ]
+
+        # --- UI 구성 ---
+        self.create_header()
+        self.create_search_bar()
+        self.create_book_list_frame()
+        self.refresh_book_list()
+
+    def create_header(self):
+        """상단 헤더 영역"""
+        header_frame = tk.Frame(self.root, bg=self.colors["header"], height=80)
+        header_frame.pack(fill="x")
+        
+        title_label = tk.Label(
+            header_frame, 
+            text="📚 꿈꾸는 어린이 도서관", 
+            bg=self.colors["header"], 
+            fg="white",
+            font=self.title_font
+        )
+        title_label.pack(pady=20)
+
+    def create_search_bar(self):
+        """검색창 영역"""
+        search_frame = tk.Frame(self.root, bg=self.colors["bg"], pady=20)
+        search_frame.pack(fill="x")
+
+        self.search_entry = tk.Entry(
+            search_frame, 
+            font=self.text_font, 
+            width=20,
+            bd=0,
+            relief="flat",
+            highlightthickness=2,
+            highlightbackground=self.colors["btn_primary"]
+        )
+        self.search_entry.pack(side="left", padx=(50, 10), ipady=5)
+
+        search_btn = tk.Button(
+            search_frame,
+            text="검색 🔍",
+            bg=self.colors["btn_primary"],
+            fg="white",
+            font=self.btn_font,
+            relief="flat",
+            command=self.search_books,
+            activebackground=self.colors["header"]
+        )
+        search_btn.pack(side="left", padx=5)
+
+        reset_btn = tk.Button(
+            search_frame,
+            text="전체보기",
+            bg=self.colors["btn_action"],
+            fg="white",
+            font=self.btn_font,
+            relief="flat",
+            command=lambda: self.refresh_book_list(),
+            activebackground=self.colors["header"]
+        )
+        reset_btn.pack(side="left", padx=5)
+
+    def create_book_list_frame(self):
+        """도서 목록이 표시될 스크롤 가능한 영역"""
+        container = tk.Frame(self.root, bg=self.colors["bg"])
+        container.pack(fill="both", expand=True, padx=20, pady=10)
+
+        # 캔버스와 스크롤바 설정 (스크롤 기능 구현)
+        self.canvas = tk.Canvas(container, bg=self.colors["bg"], highlightthickness=0)
+        scrollbar = tk.Scrollbar(container, orient="vertical", command=self.canvas.yview)
+        self.scrollable_frame = tk.Frame(self.canvas, bg=self.colors["bg"])
+
+        self.scrollable_frame.bind(
+            "<Configure>",
+            lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+        )
+
+        self.canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
+        self.canvas.configure(yscrollcommand=scrollbar.set)
+
+        self.canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+
+    def refresh_book_list(self, books_to_show=None):
+        """도서 목록을 화면에 그리는 함수"""
+        # 기존 목록 지우기
+        for widget in self.scrollable_frame.winfo_children():
+            widget.destroy()
+
+        target_books = books_to_show if books_to_show is not None else self.books
+
+        if not target_books:
+            lbl = tk.Label(self.scrollable_frame, text="찾는 책이 없어요 😢", bg=self.colors["bg"], font=self.text_font)
+            lbl.pack(pady=20)
+            return
+
+        # 2열 그리드로 배치
+        row = 0
+        col = 0
+        for book in target_books:
+            self.create_book_card(book, row, col)
+            col += 1
+            if col > 1: # 한 줄에 2개씩
+                col = 0
+                row += 1
+
+    def create_book_card(self, book, row, col):
+        """개별 책 카드 디자인"""
+        card = tk.Frame(
+            self.scrollable_frame, 
+            bg=self.colors["card_bg"], 
+            bd=2, 
+            relief="ridge",
+            width=250,
+            height=150
+        )
+        # grid를 사용할 때 프레임 크기 고정을 위해 pack_propagate 끔
+        card.pack_propagate(False) 
+        card.grid(row=row, column=col, padx=10, pady=10)
+
+        # 책 아이콘
+        tk.Label(
+            card, text=book["icon"], bg="white", font=self.emoji_font
+        ).pack(pady=(10, 0))
+
+        # 책 제목
+        tk.Label(
+            card, text=book["title"], bg="white", fg=self.colors["text"], font=("맑은 고딕", 12, "bold")
+        ).pack()
+
+        # 대출 상태 및 버튼
+        status_text = "대출 가능" if book["status"] else "대출 중..."
+        status_color = "#4CAF50" if book["status"] else "#FF5252" # 초록 / 빨강
+
+        btn = tk.Button(
+            card,
+            text=status_text,
+            bg=status_color,
+            fg="white",
+            font=("맑은 고딕", 10, "bold"),
+            relief="flat",
+            command=lambda b=book: self.open_book_popup(b)
+        )
+        btn.pack(side="bottom", fill="x", pady=5, padx=5)
+
+    def search_books(self):
+        """책 검색 로직"""
+        keyword = self.search_entry.get().strip()
+        if not keyword:
+            self.refresh_book_list()
+            return
+
+        results = [b for b in self.books if keyword in b["title"] or keyword in b["author"]]
+        self.refresh_book_list(results)
+
+    def open_book_popup(self, book):
+        """책 상세 정보 및 대출/반납 팝업"""
+        popup = tk.Toplevel(self.root)
+        popup.title(book["title"])
+        popup.geometry("300x350")
+        popup.configure(bg=self.colors["bg"])
+
+        # 아이콘
+        tk.Label(popup, text=book["icon"], bg=self.colors["bg"], font=("Apple Color Emoji", 60)).pack(pady=20)
+        
+        # 제목 & 작가
+        tk.Label(popup, text=book["title"], bg=self.colors["bg"], font=("맑은 고딕", 16, "bold")).pack()
+        tk.Label(popup, text=f"작가: {book['author']}", bg=self.colors["bg"], font=self.text_font).pack(pady=5)
+
+        # 상태 메시지
+        status_msg = "이 책을 빌릴까요?" if book["status"] else "책을 반납할까요?"
+        tk.Label(popup, text=status_msg, bg=self.colors["bg"], fg="#FF7043", font=self.text_font).pack(pady=20)
+
+        # 동작 버튼
+        action_text = "대출하기 📖" if book["status"] else "반납하기 ↩️"
+        action_btn = tk.Button(
+            popup,
+            text=action_text,
+            bg=self.colors["btn_primary"],
+            fg="white",
+            font=self.btn_font,
+            width=15,
+            height=2,
+            relief="flat",
+            command=lambda: self.toggle_borrow(book, popup)
+        )
+        action_btn.pack(pady=10)
+
+    def toggle_borrow(self, book, popup):
+        """대출/반납 상태 변경"""
+        if book["status"]:
+            # 대출 처리
+            book["status"] = False
+            messagebox.showinfo("성공", f"'{book['title']}' 책을 빌렸어요! \n독서 통장에 기록될 거예요.", parent=popup)
+        else:
+            # 반납 처리
+            book["status"] = True
+            messagebox.showinfo("완료", f"'{book['title']}' 책을 반납했어요! \n재미있게 읽었나요?", parent=popup)
+        
+        popup.destroy()
+        self.refresh_book_list() # 목록 새로고침
+
+if __name__ == "__main__":
+    root = tk.Tk()
+    app = KidsKioskApp(root)
+    root.mainloop()
